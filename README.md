@@ -39,7 +39,7 @@ to the trade age (5 min, 15 min, 30 min, 1 h … 1 d). Light and dark themes fol
 
 - A running Freqtrade bot with the REST API enabled.
 - Python 3.8+ on the machine that runs the dashboard (usually the same machine as the bot).
-- Linux for the host health block (the rest works everywhere, that block will just be empty).
+- Any OS for the dashboard itself (Linux, Windows, macOS; see section 5). Linux is needed only for the host health block, elsewhere it shows dashes.
 
 ## 1. Enable the Freqtrade API
 
@@ -124,6 +124,87 @@ sudo systemctl status freqtrade-dashboard
 ```
 
 If your bot service has another name, set `Environment=FT_SERVICE=name` so the "Bot service" and "Restarts" fields work.
+
+## 5. Windows, macOS and Docker
+
+The dashboard itself (trades, orders, candles, history, daily profit) runs on any system with Python 3.8+.
+Only the "Bot and host" block reads Linux files (`/proc`, `/sys`, `systemctl`); on Windows and macOS it simply shows dashes.
+On these systems pass the API settings as environment variables (the default config path is a Linux path).
+
+### Windows
+
+1. Install Python 3 from [python.org](https://www.python.org/downloads/) (tick **Add python.exe to PATH**).
+2. Put `server.py` and `index.html` in a folder, for example `C:\freqtrade-dashboard`.
+3. Open PowerShell in that folder and run:
+
+```powershell
+$env:FT_API_URL="http://127.0.0.1:8080"
+$env:FT_API_USER="your_user"
+$env:FT_API_PASS="a_long_random_password"
+python server.py
+```
+
+Open `http://127.0.0.1:8090`. To open it from your phone on the same network add `$env:DASH_HOST="0.0.0.0"` and
+`$env:DASH_PASS="choose-a-password"` before `python server.py`, and allow Python in the Windows Firewall for **private** networks only.
+
+To start it automatically, save this as `start.bat` in the same folder and add it to Task Scheduler ("At log on"):
+
+```bat
+@echo off
+cd /d %~dp0
+set FT_API_URL=http://127.0.0.1:8080
+set FT_API_USER=your_user
+set FT_API_PASS=a_long_random_password
+python server.py
+```
+
+### macOS
+
+Python 3 is included with the Xcode command line tools (`python3 --version`), or install it with `brew install python`.
+
+```bash
+cd ~/freqtrade-dashboard
+FT_API_URL=http://127.0.0.1:8080 FT_API_USER=your_user FT_API_PASS='a_long_random_password' python3 server.py
+```
+
+To start it at login, create `~/Library/LaunchAgents/com.freqtrade.dashboard.plist` (use the path from `which python3` and your own paths):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.freqtrade.dashboard</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/YOU/freqtrade-dashboard/server.py</string>
+  </array>
+  <key>EnvironmentVariables</key><dict>
+    <key>FT_API_URL</key><string>http://127.0.0.1:8080</string>
+    <key>FT_API_USER</key><string>your_user</string>
+    <key>FT_API_PASS</key><string>a_long_random_password</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+</dict></plist>
+```
+
+Then run `launchctl load ~/Library/LaunchAgents/com.freqtrade.dashboard.plist`.
+
+### Freqtrade in Docker
+
+Inside the container the API must listen on all interfaces, but publish the port only to the host's loopback so it is not reachable from outside.
+In the Freqtrade `config.json` use `"listen_ip_address": "0.0.0.0"`, and in `docker-compose.yml`:
+
+```yaml
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+Then run the dashboard on the host with `FT_API_URL=http://127.0.0.1:8080` and your API user and password (see above).
+If you run the dashboard as another container in the same compose network, use `FT_API_URL=http://freqtrade:8080` (your service name).
+The host block then shows the machine where the dashboard runs, not the bot container.
+
+*The Windows, macOS and Docker steps are written from the standard behaviour of these systems; the dashboard code itself was tested on Linux, and without Linux files (no `/proc`, `/sys`, `systemctl`) in a simulated environment.*
 
 ## Settings (environment variables)
 
