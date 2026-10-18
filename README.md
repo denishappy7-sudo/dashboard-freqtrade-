@@ -26,6 +26,7 @@ It never sends commands to the bot: it only reads data from the Freqtrade REST A
   - the average entry price line and the liquidation price line,
   - numbered markers for every entry and re-entry (1, 2, 3 …), a red minus for each partial sell, a grey dot for a pending order,
   - the list of all orders: time, order tag, price, size in USDT and the % distance from the first entry price.
+  - **Chart controls**: switch the candle size between Auto, 15 min and 1 hour, and press **◀ +7d** to load another week of history before the trade (press it again for more, ↺ resets).
 - **Closed trades**: collapsible list of up to 300 trades with filters **All / Week / Month**, a summary line (wins, losses, total USDT),
   badges with the number of re-entries and partial sells. Tap a trade to see the same details, candle chart and order list
   (with a check mark at the final exit).

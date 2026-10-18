@@ -28,7 +28,7 @@ h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06
 .bar{height:6px;background:var(--line);border-radius:4px;margin-top:6px}.bar i{display:block;height:6px;border-radius:4px}
 svg text{fill:var(--muted);font-size:10px}
 .ch svg text{font-size:15px}.t{cursor:pointer}.ch{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
-.chips{display:flex;gap:8px;margin-bottom:10px}.chip{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:13px}.chip.on{border-color:var(--b);color:var(--b);font-weight:650}
+.chips{display:flex;gap:8px;margin-bottom:10px}.ivb{margin:2px 0 8px}.ivb .chip{padding:5px;font-size:12px}.chip{flex:1;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:13px}.chip.on{border-color:var(--b);color:var(--b);font-weight:650}
 .od{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
 .no{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:11px;background:var(--b);color:#fff;font-size:12px;font-weight:700}
 .no.s{background:var(--r)}.no.w{background:var(--muted)}.no.z{background:var(--g)}
@@ -179,22 +179,26 @@ function trById(id){for(var i=0;i<LAST.length;i++)if(String(LAST[i].id)===String
 function cById(id){if(CLD)for(var i=0;i<CLD.length;i++)if(String(CLD[i].id)===String(id))return CLD[i]}
 function tg(id){OPEN[id]=!OPEN[id];draw(id)}
 function tc(id){OPENC[id]=!OPENC[id];drawc(id)}
+var IVSEL={},BACK={};
+function ivbar(k,id){var v=IVSEL[k+id]||'',bk=BACK[k+id]||0;return '<div class="chips ivb">'+[['','Auto'],['15m','15 min'],['1h','1 hour']].map(function(c){return '<button class="chip'+(v===c[0]?' on':'')+'" onclick="setiv(event,\''+k+'\','+id+',\''+c[0]+'\')">'+c[1]+'</button>'}).join('')+'<button class="chip'+(bk?' on':'')+'" onclick="setbk(event,\''+k+'\','+id+',1)">◀ +7d'+(bk?' ×'+bk:'')+'</button>'+(bk?'<button class="chip" style="flex:none;padding:5px 12px" onclick="setbk(event,\''+k+'\','+id+',0)">↺</button>':'')+'</div>'}
+function setiv(e,k,id,v){e.stopPropagation();IVSEL[k+id]=v;if(k==='o')draw(id);else drawc(id)}
+function setbk(e,k,id,d){e.stopPropagation();BACK[k+id]=d?Math.min((BACK[k+id]||0)+1,26):0;if(k==='o')draw(id);else drawc(id)}
 function draw(id){
   var el=$('ch'+id);if(!el)return;
   if(!OPEN[id]){el.innerHTML='';el.style.display='none';return}
   el.style.display='block';var t=trById(id);if(!t)return;
-  var st=Math.floor(Math.min((t.opened||Date.now())-5400000,Date.now()-86400000)/3600000)*3600000,key=t.pair+'|'+st,c=CN[key];
-  el.innerHTML='<div class="hl">'+det(t)+'</div><div class="ttl">Chart</div><div id="cc'+id+'">'+(c?svgc(t,c.d,false):'<div class="sub">loading chart…</div>')+'</div>'+ordHTML(t,false);
+  var iv=IVSEL['o'+id]||'',st=Math.floor(Math.min((t.opened||Date.now())-5400000,Date.now()-86400000)/3600000)*3600000-(BACK['o'+id]||0)*604800000,key=t.pair+'|'+st+(iv?'|'+iv:''),c=CN[key];
+  el.innerHTML='<div class="hl">'+det(t)+'</div><div class="ttl">Chart</div>'+ivbar('o',id)+'<div id="cc'+id+'">'+(c?svgc(t,c.d,false):'<div class="sub">loading chart…</div>')+'</div>'+ordHTML(t,false);
   if(c&&Date.now()-c.t<30000)return;
-  fetch('/candles?pair='+encodeURIComponent(t.pair)+'&from='+st).then(function(r){return r.json()}).then(function(d){CN[key]={t:Date.now(),d:d};var t2=trById(id),e2=$('cc'+id);if(OPEN[id]&&e2&&t2)e2.innerHTML=svgc(t2,d,false)}).catch(function(){var e2=$('cc'+id);if(e2&&!c)e2.innerHTML='<div class="sub">no connection</div>'})}
+  fetch('/candles?pair='+encodeURIComponent(t.pair)+'&from='+st+(iv?'&iv='+iv:'')).then(function(r){return r.json()}).then(function(d){CN[key]={t:Date.now(),d:d};var t2=trById(id),e2=$('cc'+id);if(OPEN[id]&&e2&&t2)e2.innerHTML=svgc(t2,d,false)}).catch(function(){var e2=$('cc'+id);if(e2&&!c)e2.innerHTML='<div class="sub">no connection</div>'})}
 function drawc(id){
   var el=$('cd'+id);if(!el)return;
   if(!OPENC[id]){el.innerHTML='';el.style.display='none';return}
   var t=cById(id);if(!t)return;el.style.display='block';
-  var stat=t.closed+7200000<Date.now(),st=Math.floor((t.opened-7200000)/3600000)*3600000,en=Math.min(Date.now(),t.closed+7200000),key=t.pair+'|'+st+'|'+(stat?en:Math.floor(en/600000)),c=CN[key];
-  el.innerHTML='<div class="hl">'+detc(t)+'<div><span class="sub">Exit reason</span><b>'+rs(t.reason)+'</b></div></div><div class="ttl">Chart</div><div id="cx'+id+'">'+(c?svgc(t,c.d,true):'<div class="sub">loading chart…</div>')+'</div>'+ordHTML(t,true);
+  var stat=t.closed+7200000<Date.now(),iv=IVSEL['c'+id]||'',st=Math.floor((t.opened-7200000)/3600000)*3600000-(BACK['c'+id]||0)*604800000,en=Math.min(Date.now(),t.closed+7200000),key=t.pair+'|'+st+'|'+(stat?en:Math.floor(en/600000))+(iv?'|'+iv:''),c=CN[key];
+  el.innerHTML='<div class="hl">'+detc(t)+'<div><span class="sub">Exit reason</span><b>'+rs(t.reason)+'</b></div></div><div class="ttl">Chart</div>'+ivbar('c',id)+'<div id="cx'+id+'">'+(c?svgc(t,c.d,true):'<div class="sub">loading chart…</div>')+'</div>'+ordHTML(t,true);
   if(c&&(stat||Date.now()-c.t<30000))return;
-  fetch('/candles?pair='+encodeURIComponent(t.pair)+'&from='+st+'&to='+en).then(function(r){return r.json()}).then(function(d){CN[key]={t:Date.now(),d:d};var t2=cById(id),e2=$('cx'+id);if(OPENC[id]&&e2&&t2)e2.innerHTML=svgc(t2,d,true)}).catch(function(){var e2=$('cx'+id);if(e2&&!c)e2.innerHTML='<div class="sub">no connection</div>'})}
+  fetch('/candles?pair='+encodeURIComponent(t.pair)+'&from='+st+'&to='+en+(iv?'&iv='+iv:'')).then(function(r){return r.json()}).then(function(d){CN[key]={t:Date.now(),d:d};var t2=cById(id),e2=$('cx'+id);if(OPENC[id]&&e2&&t2)e2.innerHTML=svgc(t2,d,true)}).catch(function(){var e2=$('cx'+id);if(e2&&!c)e2.innerHTML='<div class="sub">no connection</div>'})}
 var CLO=false,CLD=null,CLF='all';
 function tcl(){CLO=!CLO;drawcl()}
 function setf(v){CLF=v;drawcl()}

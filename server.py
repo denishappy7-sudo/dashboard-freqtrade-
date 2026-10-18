@@ -156,7 +156,10 @@ def known_pairs():
     return s
 
 
-def candles(pair, start=None, end=None):
+FIXIV = {'15m': 900000, '1h': 3600000}
+
+
+def candles(pair, start=None, end=None, fix=None):
     """OHLC candles (Binance public klines) for a pair that appears in your open/closed trades."""
     if pair not in known_pairs() or not re.match(r'^[A-Z0-9]{1,20}/USDT(:USDT)?$', pair):
         return {'err': 'pair is not in your trades'}
@@ -172,6 +175,9 @@ def candles(pair, start=None, end=None):
         if span / ms <= 160:
             iv, name = ms, nm
             break
+    if fix in FIXIV:
+        iv, name = FIXIV[fix], fix
+        start = max(start, end - 1000 * iv)
     start = start // iv * iv
     key = (pair, name, start, end // iv)
     c = CND.get(key)
@@ -179,7 +185,7 @@ def candles(pair, start=None, end=None):
         return c[1]
     sym = pair.split('/')[0] + 'USDT'
     base, path = (BINANCE_FUTURES, 'fapi/v1') if ':USDT' in pair else (BINANCE_SPOT, 'api/v3')
-    url = '%s/%s/klines?symbol=%s&interval=%s&startTime=%d&endTime=%d&limit=500' % (base, path, sym, name, start, end)
+    url = '%s/%s/klines?symbol=%s&interval=%s&startTime=%d&endTime=%d&limit=1000' % (base, path, sym, name, start, end)
     raw = json.load(urllib.request.urlopen(url, timeout=10))
     out = {'pair': pair, 'iv': iv, 'c': [[k[0], float(k[1]), float(k[2]), float(k[3]), float(k[4])] for k in raw],
            'hi': max(float(k[2]) for k in raw), 'lo': min(float(k[3]) for k in raw)}
@@ -228,7 +234,7 @@ class H(BaseHTTPRequestHandler):
         elif p == '/candles':
             q = urllib.parse.parse_qs(self.path.split('?', 1)[1]) if '?' in self.path else {}
             try:
-                body = candles((q.get('pair') or [''])[0], (q.get('from') or [None])[0], (q.get('to') or [None])[0])
+                body = candles((q.get('pair') or [''])[0], (q.get('from') or [None])[0], (q.get('to') or [None])[0], (q.get('iv') or [None])[0])
             except Exception as e:
                 body = {'err': 'no data: %s' % e}
             self.send(200, json.dumps(body).encode(), 'application/json; charset=utf-8')
